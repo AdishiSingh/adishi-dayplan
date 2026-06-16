@@ -199,18 +199,51 @@ document.addEventListener('DOMContentLoaded', () => {
         btnCloseTaskModal.addEventListener('click', closeTaskModal);
         btnCancelTask.addEventListener('click', closeTaskModal);
         
-        btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
-        btnCancelDelete.addEventListener('click', closeDeleteModal);
-        btnConfirmDelete.addEventListener('click', deleteConfirmed);
-
         // Close modal clicking outside content
         window.addEventListener('click', (e) => {
             if (e.target === taskModal) closeTaskModal();
-            if (e.target === deleteModal) closeDeleteModal();
         });
 
         // Form Submit
         taskForm.addEventListener('submit', handleTaskFormSubmit);
+
+        // Quick Add Form Submit
+        const quickAddForm = document.getElementById('quick-add-form');
+        const quickAddInput = document.getElementById('quick-add-input');
+        if (quickAddForm) {
+            quickAddForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const title = quickAddInput.value.trim();
+                if (!title) return;
+
+                const todayStr = getLocalDateString(new Date());
+                const payload = {
+                    title: title,
+                    description: 'Quick added task',
+                    date: todayStr,
+                    priority: 'medium'
+                };
+
+                try {
+                    const response = await fetch('/api/tasks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        quickAddInput.value = '';
+                        showToast('Task added for today! ⚡', 'success');
+                        fetchStatsAndRender();
+                    } else {
+                        showToast('Failed to add task.', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error in quick add:', error);
+                    showToast('Something went wrong.', 'danger');
+                }
+            });
+        }
 
         // Planner Actions & Filters
         searchInput.addEventListener('input', handleSearchInput);
@@ -547,7 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Bind edit/delete click handlers
             card.querySelector('.btn-edit').addEventListener('click', () => openTaskModal(task));
-            card.querySelector('.btn-delete').addEventListener('click', () => openDeleteModal(task));
+            card.querySelector('.btn-delete').addEventListener('click', () => deleteTaskImmediately(task));
 
             tasksListContainer.appendChild(card);
         });
@@ -672,25 +705,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Deletes a task after confirmation modal approved
-    async function deleteConfirmed() {
-        if (!state.deleteTargetId) return;
+    let lastDeletedTask = null;
 
+    // Deletes a task immediately and caches it for undo action
+    async function deleteTaskImmediately(task) {
+        lastDeletedTask = { ...task };
         try {
-            const response = await fetch(`/api/tasks/${state.deleteTargetId}`, {
+            const response = await fetch(`/api/tasks/${task.id}`, {
                 method: 'DELETE'
             });
 
             if (response.ok) {
-                showToast('Task deleted successfully.', 'success');
-                closeDeleteModal();
                 fetchTasksAndRender();
+                if (state.currentTab === 'dashboard') {
+                    fetchStatsAndRender();
+                }
+                showUndoToast(`Deleted task "${task.title}"`);
             } else {
                 showToast('Failed to delete task.', 'danger');
             }
         } catch (error) {
             console.error('Error deleting task:', error);
-            showToast('An error occurred. Check backend logs.', 'danger');
+            showToast('An error occurred while deleting task.', 'danger');
+        }
+    }
+
+    // Restores the last deleted task from memory
+    async function undoDelete() {
+        if (!lastDeletedTask) return;
+
+        const payload = {
+            title: lastDeletedTask.title,
+            description: lastDeletedTask.description,
+            date: lastDeletedTask.date,
+            priority: lastDeletedTask.priority,
+            completed: lastDeletedTask.completed
+        };
+
+        try {
+            const response = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                showToast('Action undone! Task restored.', 'success');
+                lastDeletedTask = null;
+                fetchTasksAndRender();
+                if (state.currentTab === 'dashboard') {
+                    fetchStatsAndRender();
+                }
+            } else {
+                showToast('Failed to restore task.', 'danger');
+            }
+        } catch (error) {
+            console.error('Error restoring task:', error);
+            showToast('Failed to restore task.', 'danger');
         }
     }
 
@@ -730,18 +801,35 @@ document.addEventListener('DOMContentLoaded', () => {
         taskForm.reset();
     }
 
-    function openDeleteModal(task) {
-        state.deleteTargetId = task.id;
-        deletePreviewContent.innerHTML = `
-            <strong>${escapeHTML(task.title)}</strong>
-            <span class="preview-date">Scheduled: ${formatTaskDateReadable(task.date)}</span>
+    function showUndoToast(message) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-warning`;
+        
+        toast.innerHTML = `
+            <span class="toast-message">${message}</span>
+            <div style="display:flex; gap:12px; align-items:center;">
+                <button class="btn-undo-action" style="background:none; border:none; color:var(--color-primary); font-weight:700; cursor:pointer; font-size:0.85rem; text-transform:uppercase; font-family:var(--font-primary);">Undo</button>
+                <button class="toast-close" style="font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
         `;
-        deleteModal.classList.add('open');
-    }
 
-    function closeDeleteModal() {
-        deleteModal.classList.remove('open');
-        state.deleteTargetId = null;
+        toastContainer.appendChild(toast);
+
+        // Auto remove toast after 6 seconds
+        const autoRemove = setTimeout(() => {
+            removeToast(toast);
+        }, 6000);
+
+        toast.querySelector('.btn-undo-action').addEventListener('click', async () => {
+            clearTimeout(autoRemove);
+            removeToast(toast);
+            await undoDelete();
+        });
+
+        toast.querySelector('.toast-close').addEventListener('click', () => {
+            clearTimeout(autoRemove);
+            removeToast(toast);
+        });
     }
 
     /* ==========================================================================

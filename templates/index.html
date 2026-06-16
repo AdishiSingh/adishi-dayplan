@@ -183,6 +183,14 @@
                             <button class="btn-text go-to-planner" data-target-filter="today">Manage All</button>
                         </div>
                         <div class="panel-body">
+                            <!-- Quick Add Form -->
+                            <div class="quick-add-container" style="margin-bottom: 16px;">
+                                <form id="quick-add-form" autocomplete="off" style="display: flex; gap: 8px;">
+                                    <input type="text" id="quick-add-input" class="form-control" placeholder="⚡ Quick add a task for today..." required style="border-radius: var(--radius-pill); padding: 8px 16px; font-size: 0.9rem;">
+                                    <button type="submit" class="btn btn-primary" style="border-radius: var(--radius-pill); padding: 8px 16px; font-size: 0.85rem;" title="Add Task">Add</button>
+                                </form>
+                            </div>
+                            
                             <div class="task-compact-list" id="dashboard-today-list">
                                 <!-- Tasks injected dynamically -->
                                 <p class="empty-state-text">No tasks planned for today. Click Planner to add some!</p>
