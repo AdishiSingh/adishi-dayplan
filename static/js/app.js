@@ -114,6 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
         taskDateField.value = todayStr;
         filterDateCustom.value = todayStr;
 
+        // Initialize Custom Datepickers
+        if (taskDateField) initCustomDatePicker(taskDateField);
+        if (filterDateCustom) initCustomDatePicker(filterDateCustom);
+
         // Fetch Initial Content
         fetchQuote();
         fetchStatsAndRender();
@@ -662,6 +666,91 @@ document.addEventListener('DOMContentLoaded', () => {
             card.querySelector('.btn-edit').addEventListener('click', () => openTaskModal(task));
             card.querySelector('.btn-delete').addEventListener('click', () => deleteTaskImmediately(task));
 
+            // Drag and Drop implementation
+            card.setAttribute('draggable', 'true');
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', task.id);
+                e.dataTransfer.effectAllowed = 'move';
+                card.style.opacity = '0.5';
+                showRescheduleBar();
+            });
+            card.addEventListener('dragend', () => {
+                card.style.opacity = '1';
+                hideRescheduleBar();
+            });
+
+            // Inline Title Editing implementation
+            const titleEl = card.querySelector('.task-card-title');
+            titleEl.addEventListener('dblclick', () => {
+                if (task.completed === 1) return; // Prevent editing completed tasks
+                
+                const currentTitle = titleEl.textContent;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentTitle;
+                input.className = 'form-control inline-edit-title-input';
+                input.style.fontSize = '1.15rem';
+                input.style.fontWeight = '700';
+                input.style.padding = '4px 8px';
+                input.style.width = '100%';
+                
+                titleEl.replaceWith(input);
+                input.focus();
+                input.select();
+                
+                let isSaving = false;
+                
+                const saveInlineEdit = async () => {
+                    if (isSaving) return;
+                    isSaving = true;
+                    const newTitle = input.value.trim();
+                    if (!newTitle) {
+                        showToast('Title cannot be empty.', 'warning');
+                        input.replaceWith(titleEl);
+                        return;
+                    }
+                    
+                    if (newTitle === currentTitle) {
+                        input.replaceWith(titleEl);
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/api/tasks/${task.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ title: newTitle })
+                        });
+                        
+                        if (response.ok) {
+                            titleEl.textContent = newTitle;
+                            input.replaceWith(titleEl);
+                            showToast('Title updated inline!', 'success');
+                            fetchTasksAndRender();
+                        } else {
+                            showToast('Failed to update title.', 'danger');
+                            input.replaceWith(titleEl);
+                        }
+                    } catch (error) {
+                        console.error('Error saving inline title:', error);
+                        showToast('Something went wrong.', 'danger');
+                        input.replaceWith(titleEl);
+                    }
+                };
+                
+                input.addEventListener('blur', saveInlineEdit);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveInlineEdit();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        isSaving = true;
+                        input.replaceWith(titleEl);
+                    }
+                });
+            });
+
             tasksListContainer.appendChild(card);
         });
     }
@@ -1064,6 +1153,295 @@ document.addEventListener('DOMContentLoaded', () => {
                 '"': '&quot;'
             }[tag] || tag)
         );
+    }
+
+    // --- CUSTOM DATEPICKER IMPLEMENTATION ---
+    function initCustomDatePicker(input) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-datepicker-wrapper';
+        wrapper.style.position = 'relative';
+        wrapper.style.width = '100%';
+        
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+        
+        const popover = document.createElement('div');
+        popover.className = 'custom-calendar-popover card';
+        popover.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1010;
+            display: none;
+            width: 280px;
+            padding: 16px;
+            margin-top: 8px;
+            background-color: var(--color-surface-solid);
+            border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-lg);
+            border-radius: var(--radius-md);
+            user-select: none;
+        `;
+        wrapper.appendChild(popover);
+        
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+        
+        input.setAttribute('type', 'text');
+        input.setAttribute('readonly', 'true');
+        input.style.cursor = 'pointer';
+        
+        input.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.custom-calendar-popover').forEach(p => {
+                if (p !== popover) p.style.display = 'none';
+            });
+            
+            const val = input.value;
+            if (val) {
+                const parts = val.split('-');
+                currentYear = parseInt(parts[0]);
+                currentMonth = parseInt(parts[1]) - 1;
+            }
+            
+            popover.style.display = popover.style.display === 'block' ? 'none' : 'block';
+            renderCalendar();
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target)) {
+                popover.style.display = 'none';
+            }
+        });
+        
+        function renderCalendar() {
+            popover.innerHTML = '';
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            
+            const header = document.createElement('div');
+            header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;';
+            
+            const btnPrev = document.createElement('button');
+            btnPrev.type = 'button';
+            btnPrev.innerHTML = '&larr;';
+            btnPrev.style.cssText = 'background:none; border:none; color:var(--color-primary); font-weight:700; cursor:pointer; font-size:1.1rem;';
+            btnPrev.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentMonth--;
+                if (currentMonth < 0) {
+                    currentMonth = 11;
+                    currentYear--;
+                }
+                renderCalendar();
+            });
+            
+            const title = document.createElement('span');
+            title.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            title.style.cssText = 'font-weight:700; font-size:0.95rem; color:var(--color-text);';
+            
+            const btnNext = document.createElement('button');
+            btnNext.type = 'button';
+            btnNext.innerHTML = '&rarr;';
+            btnNext.style.cssText = 'background:none; border:none; color:var(--color-primary); font-weight:700; cursor:pointer; font-size:1.1rem;';
+            btnNext.addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentMonth++;
+                if (currentMonth > 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                }
+                renderCalendar();
+            });
+            
+            header.appendChild(btnPrev);
+            header.appendChild(title);
+            header.appendChild(btnNext);
+            popover.appendChild(header);
+            
+            const weekdaysGrid = document.createElement('div');
+            weekdaysGrid.style.cssText = 'display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-weight:600; font-size:0.75rem; color:var(--color-text-light); margin-bottom:8px;';
+            ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].forEach(day => {
+                const el = document.createElement('span');
+                el.textContent = day;
+                weekdaysGrid.appendChild(el);
+            });
+            popover.appendChild(weekdaysGrid);
+            
+            const daysGrid = document.createElement('div');
+            daysGrid.style.cssText = 'display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;';
+            
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const numDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            for (let i = 0; i < firstDay; i++) {
+                const empty = document.createElement('span');
+                daysGrid.appendChild(empty);
+            }
+            
+            const todayStr = getLocalDateString(new Date());
+            const selectedVal = input.value;
+            
+            for (let d = 1; d <= numDays; d++) {
+                const dayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const btnDay = document.createElement('button');
+                btnDay.type = 'button';
+                btnDay.textContent = d;
+                
+                let btnStyle = `
+                    background:none; 
+                    border:none; 
+                    border-radius:50%; 
+                    width:30px; 
+                    height:30px; 
+                    display:flex; 
+                    align-items:center; 
+                    justify-content:center; 
+                    font-family:var(--font-primary); 
+                    font-size:0.85rem; 
+                    font-weight:500; 
+                    color:var(--color-text); 
+                    cursor:pointer;
+                    margin: 0 auto;
+                    transition: background-color 0.15s ease;
+                `;
+                
+                if (dayStr === todayStr) {
+                    btnStyle += 'border: 1px solid var(--color-primary); font-weight: 700; color: var(--color-primary);';
+                }
+                if (dayStr === selectedVal) {
+                    btnStyle += 'background-color: var(--color-primary) !important; color: white !important; font-weight: 700;';
+                }
+                
+                btnDay.style.cssText = btnStyle;
+                
+                btnDay.addEventListener('mouseover', () => {
+                    if (dayStr !== selectedVal) {
+                        btnDay.style.backgroundColor = 'var(--color-primary-light)';
+                    }
+                });
+                btnDay.addEventListener('mouseout', () => {
+                    if (dayStr !== selectedVal) {
+                        btnDay.style.backgroundColor = 'transparent';
+                    }
+                });
+                
+                btnDay.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    input.value = dayStr;
+                    popover.style.display = 'none';
+                    const event = new Event('change');
+                    input.dispatchEvent(event);
+                });
+                
+                daysGrid.appendChild(btnDay);
+            }
+            popover.appendChild(daysGrid);
+        }
+    }
+
+    // --- DRAG & DROP FLOATING BAR IMPLEMENTATION ---
+    let rescheduleBar = null;
+
+    function createRescheduleBar() {
+        if (rescheduleBar) return;
+        
+        rescheduleBar = document.createElement('div');
+        rescheduleBar.className = 'reschedule-drop-bar animate-scale';
+        rescheduleBar.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: var(--color-surface-solid);
+            border: 2px solid var(--color-primary);
+            box-shadow: var(--shadow-lg);
+            border-radius: var(--radius-pill);
+            display: flex;
+            gap: 16px;
+            padding: 12px 24px;
+            z-index: 9999;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+            opacity: 0;
+        `;
+        
+        rescheduleBar.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:0.9rem; color:var(--color-primary); margin-right:8px; font-family:var(--font-primary);">
+                <span>Reschedule task:</span>
+            </div>
+            <div class="reschedule-dropzone" data-target="today" style="padding: 8px 16px; border-radius: var(--radius-pill); background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; border: 1px dashed var(--color-primary); cursor: pointer; transition: all 0.2s ease; font-family:var(--font-primary); font-size:0.85rem;">
+                Move to Today ☀️
+            </div>
+            <div class="reschedule-dropzone" data-target="tomorrow" style="padding: 8px 16px; border-radius: var(--radius-pill); background: var(--color-success-light); color: var(--color-success); font-weight: 700; border: 1px dashed var(--color-success); cursor: pointer; transition: all 0.2s ease; font-family:var(--font-primary); font-size:0.85rem;">
+                Move to Tomorrow 🌅
+            </div>
+        `;
+        
+        document.body.appendChild(rescheduleBar);
+        
+        rescheduleBar.querySelectorAll('.reschedule-dropzone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.style.transform = 'scale(1.05)';
+                zone.style.backgroundColor = 'var(--color-primary)';
+                zone.style.color = 'white';
+            });
+            
+            zone.addEventListener('dragleave', () => {
+                zone.style.transform = 'scale(1)';
+                zone.style.backgroundColor = zone.getAttribute('data-target') === 'today' ? 'var(--color-primary-light)' : 'var(--color-success-light)';
+                zone.style.color = zone.getAttribute('data-target') === 'today' ? 'var(--color-primary)' : 'var(--color-success)';
+            });
+            
+            zone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                const taskId = e.dataTransfer.getData('text/plain');
+                const target = zone.getAttribute('data-target');
+                
+                let targetDate = new Date();
+                if (target === 'tomorrow') {
+                    targetDate.setDate(targetDate.getDate() + 1);
+                }
+                const dateStr = getLocalDateString(targetDate);
+                
+                try {
+                    const response = await fetch(`/api/tasks/${taskId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ date: dateStr })
+                    });
+                    
+                    if (response.ok) {
+                        showToast(`Task rescheduled to ${target}!`, 'success');
+                        fetchTasksAndRender();
+                        if (state.currentTab === 'dashboard') {
+                            fetchStatsAndRender();
+                        }
+                    } else {
+                        showToast('Reschedule failed.', 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error rescheduling task:', error);
+                    showToast('Something went wrong.', 'danger');
+                }
+                
+                zone.style.transform = 'scale(1)';
+                zone.style.backgroundColor = zone.getAttribute('data-target') === 'today' ? 'var(--color-primary-light)' : 'var(--color-success-light)';
+                zone.style.color = zone.getAttribute('data-target') === 'today' ? 'var(--color-primary)' : 'var(--color-success)';
+            });
+        });
+    }
+
+    function showRescheduleBar() {
+        createRescheduleBar();
+        rescheduleBar.style.transform = 'translateX(-50%) translateY(0)';
+        rescheduleBar.style.opacity = '1';
+    }
+
+    function hideRescheduleBar() {
+        if (rescheduleBar) {
+            rescheduleBar.style.transform = 'translateX(-50%) translateY(100px)';
+            rescheduleBar.style.opacity = '0';
+        }
     }
 
     // Kickstart Adishi's dayplan UI
