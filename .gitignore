@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+
+# Python virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# macOS system files
+.DS_Store
+
+# SQLite databases
+database/*.db
+database/test_planner.db
