@@ -259,6 +259,47 @@ document.addEventListener('DOMContentLoaded', () => {
         filterPriority.addEventListener('change', handlePriorityFilterChange);
         filterStatus.addEventListener('change', handleStatusFilterChange);
         btnClearFilters.addEventListener('click', resetFilters);
+
+        // Global Keyboard Hotkeys
+        document.addEventListener('keydown', (e) => {
+            // Escape key closes modals
+            if (e.key === 'Escape') {
+                closeTaskModal();
+                return;
+            }
+
+            // Detect if user is typing inside an input/textarea/select
+            const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) || 
+                             document.activeElement.isContentEditable;
+
+            // Search shortcut: Cmd+F or Ctrl+F
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                // Switch to planner tab first so search bar is visible
+                if (state.currentTab !== 'planner') {
+                    switchTab('planner');
+                }
+                searchInput.focus();
+                searchInput.select();
+                showToast('Search mode focused 🔍', 'success');
+                return;
+            }
+
+            // Create task shortcut: N (when not typing) or Alt+N / Cmd+Alt+N
+            const isNewTaskCombo = ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') || 
+                                   (e.altKey && e.key.toLowerCase() === 'n') || 
+                                   (!isTyping && e.key.toLowerCase() === 'n');
+                                   
+            if (isNewTaskCombo) {
+                e.preventDefault();
+                // Switch to planner tab
+                if (state.currentTab !== 'planner') {
+                    switchTab('planner');
+                }
+                openTaskModal();
+                return;
+            }
+        });
     }
 
     /* ==========================================================================
@@ -380,6 +421,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Load today's list dynamically on Dashboard
         fetchTodayHighlightTasks();
+
+        // Update Streak UI Counters & Badges
+        const statStreakDays = document.getElementById('stat-streak-days');
+        const statStreakBadge = document.getElementById('stat-streak-badge');
+        if (statStreakDays && statStreakBadge) {
+            const streak = stats.streak || 0;
+            statStreakDays.textContent = `${streak} Day${streak !== 1 ? 's' : ''}`;
+            
+            let badgeText = "No Streak";
+            if (streak >= 15) badgeText = "Zen Planner 🥇";
+            else if (streak >= 7) badgeText = "Routine Master 🥈";
+            else if (streak >= 3) badgeText = "Goal Getter 🥉";
+            else if (streak >= 1) badgeText = "Active Streak 🔥";
+            
+            statStreakBadge.textContent = badgeText;
+        }
     }
 
     // Fetch and display incomplete/today's tasks in dashboard Focus card
@@ -392,7 +449,20 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardTodayList.innerHTML = '';
             
             if (tasks.length === 0) {
-                dashboardTodayList.innerHTML = `<p class="empty-state-text">No tasks scheduled for today. Take it easy or schedule a task!</p>`;
+                dashboardTodayList.innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 40px 16px; text-align:center; gap: 12px; background: var(--color-surface-solid); border-radius: var(--radius-sm); border: 1px dashed var(--color-border);">
+                        <div style="color: var(--color-success); opacity: 0.8;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <span class="empty-state-text" style="font-weight:700; color: var(--color-text); font-size: 0.95rem;">You're All Caught Up!</span>
+                            <span class="empty-state-text" style="font-size:0.85rem; color: var(--color-text-light); max-width: 260px;">No pending tasks scheduled for today. Take a break or quick-add a goal!</span>
+                        </div>
+                    </div>
+                `;
                 return;
             }
 
@@ -506,13 +576,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (tasks.length === 0) {
             tasksListContainer.innerHTML = `
-                <div class="empty-state">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="8" y1="12" x2="16" y2="12"></line>
-                    </svg>
-                    <h3>No Tasks Found</h3>
-                    <p>We couldn't find any tasks matching your current filters. Try resetting filters or adding a new task!</p>
+                <div class="empty-state animate-scale" style="padding: 48px 24px; border: 2px dashed var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); text-align: center;">
+                    <div style="margin-bottom: 20px; color: var(--color-primary); opacity: 0.85;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                        </svg>
+                    </div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px;">Your Schedule is Clear</h3>
+                    <p style="color: var(--color-text-light); font-size: 0.9rem; max-width: 320px; margin: 0 auto 16px;">There are no tasks scheduled matching your active filters. Plan a new goal to kickstart your day!</p>
+                    <button class="btn btn-primary btn-with-icon" onclick="document.getElementById('btn-open-add-modal').click()" style="margin: 0 auto; border-radius: var(--radius-pill); padding: 8px 20px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Create First Task</span>
+                    </button>
                 </div>
             `;
             return;

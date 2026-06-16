@@ -223,6 +223,57 @@ def delete_task(task_id, user_id):
     conn.close()
     return rows_affected > 0
 
+def get_completion_streak(user_id):
+    """Calculate the consecutive days of completed tasks ending today or yesterday."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get total and completed tasks grouped by date, ordering descending
+    sql = '''
+        SELECT date, COUNT(*) as total, SUM(completed) as completed
+        FROM tasks
+        WHERE user_id = ?
+        GROUP BY date
+        ORDER BY date DESC
+    '''
+    cursor.execute(p(sql), (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    if not rows:
+        return 0
+        
+    from datetime import datetime, timedelta
+    today = datetime.now().date()
+    
+    dates_status = {}
+    for row in rows:
+        p_row = get_row_dict(row)
+        d_str = p_row['date']
+        try:
+            d_obj = datetime.strptime(d_str, '%Y-%m-%d').date()
+            dates_status[d_obj] = (int(p_row['total']) == int(p_row['completed']) and int(p_row['total']) > 0)
+        except ValueError:
+            continue
+            
+    check_date = today
+    # If today has no tasks, start checking from yesterday
+    if check_date not in dates_status:
+        check_date = today - timedelta(days=1)
+        
+    streak = 0
+    while True:
+        if check_date in dates_status:
+            if dates_status[check_date]:
+                streak += 1
+                check_date -= timedelta(days=1)
+            else:
+                break
+        else:
+            break
+            
+    return streak
+
 def get_productivity_stats(user_id):
     """Calculate and return task statistics for a specific user."""
     conn = get_db_connection()
@@ -231,7 +282,7 @@ def get_productivity_stats(user_id):
     # Total stats for user
     sql_total = "SELECT COUNT(*) FROM tasks WHERE user_id = ?"
     cursor.execute(p(sql_total), (user_id,))
-    total_tasks = cursor.fetchone()[0] if IS_POSTGRES else cursor.fetchone()[0]
+    total_tasks = cursor.fetchone()[0]
     
     sql_completed = "SELECT COUNT(*) FROM tasks WHERE completed = 1 AND user_id = ?"
     cursor.execute(p(sql_completed), (user_id,))
@@ -272,5 +323,6 @@ def get_productivity_stats(user_id):
         'completed': completed_tasks,
         'pending': pending_tasks,
         'completion_rate': completion_rate,
-        'priority_breakdown': priority_stats
+        'priority_breakdown': priority_stats,
+        'streak': get_completion_streak(user_id)
     }
