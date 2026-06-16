@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Register an account on Adishi's dayplan.">
+    <title>Register | Adishi's dayplan</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- App CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .auth-wrapper {
+            min-height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.08) 0%, rgba(255, 74, 90, 0.05) 90.1%);
+            padding: 20px;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            padding: 40px 32px;
+            text-align: center;
+        }
+        .auth-header {
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .auth-logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-high));
+            color: white;
+            border-radius: var(--radius-sm);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+        .auth-header h2 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-high));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .auth-header p {
+            font-size: 0.9rem;
+            color: var(--color-text-light);
+            font-weight: 500;
+        }
+        .alert {
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: left;
+            border: 1px solid transparent;
+            animation: fadeIn 0.3s ease;
+        }
+        .alert-danger {
+            background-color: var(--color-danger-light);
+            color: var(--color-danger);
+            border-color: rgba(239, 68, 68, 0.15);
+        }
+        .auth-footer {
+            margin-top: 24px;
+            font-size: 0.9rem;
+            color: var(--color-text-light);
+            font-weight: 500;
+        }
+        .auth-footer a {
+            color: var(--color-primary);
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="light-theme">
+    <div class="auth-wrapper">
+        <main class="auth-card card animate-scale">
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h2>Create Account</h2>
+                <p>Register to plan and track your productivity</p>
+            </div>
+
+            <!-- Error Alerts -->
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                ⚠️ {{ error }}
+            </div>
+            {% endif %}
+
+            <form action="/register" method="POST" autocomplete="off">
+                <div class="form-group" style="text-align: left;">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="Choose a username" required autofocus>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="At least 6 characters" required>
+                </div>
+
+                <div class="form-group" style="text-align: left; margin-bottom: 24px;">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter password" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Sign Up</button>
+            </form>
+
+            <div class="auth-footer">
+                Already have an account? <a href="/login">Log in</a>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light-theme';
+        document.body.className = savedTheme;
+    </script>
+</body>
+</html>

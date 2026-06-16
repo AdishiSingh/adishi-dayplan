@@ -5,8 +5,6 @@ import sqlite3
 from datetime import datetime, timedelta
 
 # Import our app and database helpers
-# Set environment so db uses a temporary testing path if desired, or just use default.
-# For simplicity, we can inspect test tasks.
 from app import app
 import database.db as db
 
@@ -14,17 +12,30 @@ class AdishiDayplanTestCase(unittest.TestCase):
     def setUp(self):
         """Set up test environment."""
         app.config['TESTING'] = True
+        app.secret_key = 'test-secret-key'
         self.client = app.test_client()
         
         # Point to a temporary db for testing
         db.DB_PATH = os.path.join(db.DB_DIR, 'test_planner.db')
         db.init_db()
         
-        # Clear out existing tasks from test database
+        # Clear out existing tasks and users from test database
         conn = db.get_db_connection()
         conn.execute("DELETE FROM tasks")
+        conn.execute("DELETE FROM users")
         conn.commit()
         conn.close()
+
+        # Create a test user
+        from werkzeug.security import generate_password_hash
+        self.username = 'testuser'
+        self.password = 'password123'
+        self.user_id = db.create_user(self.username, generate_password_hash(self.password))
+        
+        # Authenticate the test client by simulating Flask session setup
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = self.user_id
+            sess['username'] = self.username
 
     def tearDown(self):
         """Clean up test database."""
@@ -61,8 +72,8 @@ class AdishiDayplanTestCase(unittest.TestCase):
     def test_get_tasks_filters(self):
         """Test getting tasks and applying filters."""
         # Insert a few mock tasks
-        db.create_task('Task 1', 'Desc 1', '2026-06-17', 'high', 0)
-        db.create_task('Task 2', 'Desc 2', '2026-06-18', 'low', 1)
+        db.create_task(self.user_id, 'Task 1', 'Desc 1', '2026-06-17', 'high', 0)
+        db.create_task(self.user_id, 'Task 2', 'Desc 2', '2026-06-18', 'low', 1)
         
         # Fetch all
         response = self.client.get('/api/tasks')
@@ -84,7 +95,7 @@ class AdishiDayplanTestCase(unittest.TestCase):
 
     def test_update_task_details_and_completion(self):
         """Test updating a task's fields and toggle completion."""
-        task_id = db.create_task('Old Title', 'Old Desc', '2026-06-17', 'medium', 0)
+        task_id = db.create_task(self.user_id, 'Old Title', 'Old Desc', '2026-06-17', 'medium', 0)
         
         # Update title and complete task
         payload = {
@@ -104,21 +115,21 @@ class AdishiDayplanTestCase(unittest.TestCase):
 
     def test_delete_task(self):
         """Test deleting a task."""
-        task_id = db.create_task('To Delete', 'Desc', '2026-06-17', 'low', 0)
+        task_id = db.create_task(self.user_id, 'To Delete', 'Desc', '2026-06-17', 'low', 0)
         
         response = self.client.delete(f'/api/tasks/{task_id}')
         self.assertEqual(response.status_code, 200)
         
         # Verify it is removed
-        task = db.get_task_by_id(task_id)
+        task = db.get_task_by_id(task_id, self.user_id)
         self.assertIsNone(task)
 
     def test_stats_calculations(self):
         """Test calculation of productivity stats."""
         # Setup: 2 high, 1 low. 2 completed, 1 pending
-        db.create_task('T1', '', '2026-06-17', 'high', 1)
-        db.create_task('T2', '', '2026-06-17', 'high', 0)
-        db.create_task('T3', '', '2026-06-18', 'low', 1)
+        db.create_task(self.user_id, 'T1', '', '2026-06-17', 'high', 1)
+        db.create_task(self.user_id, 'T2', '', '2026-06-17', 'high', 0)
+        db.create_task(self.user_id, 'T3', '', '2026-06-18', 'low', 1)
         
         response = self.client.get('/api/stats')
         self.assertEqual(response.status_code, 200)

@@ -1494,3 +1494,49 @@ body.dark-theme .moon-icon { display: none; }
         gap: 0;
     }
 }
+
+/* User Profile and Logout Button styling in header */
+.user-profile-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(79, 70, 229, 0.15);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.btn-logout-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: var(--color-danger-light);
+    color: var(--color-danger);
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background-color var(--transition-speed) var(--transition-curve),
+                color var(--transition-speed) var(--transition-curve);
+}
+
+.btn-logout-header:hover {
+    background-color: var(--color-danger);
+    color: white;
+}
+
+@media (max-width: 600px) {
+    .user-profile-badge span, .btn-logout-header span {
+        display: none; /* Hide text on small screens, keep icons */
+    }
+    .user-profile-badge, .btn-logout-header {
+        padding: 8px;
+        border-radius: 50%;
+    }
+}
+

@@ -12,7 +12,7 @@
     <!-- App CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="light-theme">
+<body class="light-theme" data-username="{{ username }}">
     <!-- Main App Container -->
     <div class="app-container">
         
@@ -28,6 +28,24 @@
             </div>
             
             <div class="header-actions">
+                <!-- User Profile & Sign Out -->
+                <div class="user-profile-badge" title="Logged in as {{ username }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span>{{ username }}</span>
+                </div>
+
+                <a href="/logout" class="btn-logout-header" title="Sign Out">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>Sign Out</span>
+                </a>
+
                 <!-- Current Time Display -->
                 <div class="date-badge-header" id="current-header-date">
                     Loading Date...

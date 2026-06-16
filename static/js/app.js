@@ -307,7 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hrs < 12) greeting = 'Good Morning';
         else if (hrs < 18) greeting = 'Good Afternoon';
         
-        welcomeMessage.textContent = `${greeting}, Goal Getter`;
+        const username = body.getAttribute('data-username') || 'Goal Getter';
+        welcomeMessage.textContent = `${greeting}, ${username}`;
 
         // Update Stat Counters
         statTotalTasks.textContent = stats.total;
